@@ -198,9 +198,7 @@ class UpdateAssetValues(InitAssetValues):
             df_update, data_sign = self.get_code_values(code, diff_num)
             if data_sign == 1:
                 df_update.to_csv(path_out, index=False, mode='a', header=False)
-                logger.info("基金{code}处理结束", code=code)
-            elif data_sign == 2:  # 混合类基金不该触发此条件,但影响不大
-                logger.info("基金代码：{code}, 混合类基金不该触发此条件", code=code)
+                # logger.info("基金{code}处理结束", code=code)
         except TypeError:
             logger.info("基金代码：{code}, 无数据跳过", code=code)
 
