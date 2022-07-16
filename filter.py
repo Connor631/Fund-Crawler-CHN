@@ -50,6 +50,16 @@ class BasicIndex:
 
 
 class AggregateIndex(BasicIndex):
+    @staticmethod
+    def date_clean(df, delta_num=1):
+        last_date = df.iloc[0, 0]
+        date_spc = last_date - datetime.timedelta(days=delta_num)
+        if df[df["净值日期"] <= date_spc].shape[0] > 0:  # 确保不是最后一条数据
+            df_c = df[df["净值日期"] >= date_spc]
+            rate = (df_c.iloc[0, -1] - df_c.iloc[-1, -1]) / df_c.iloc[-1, -1]
+            return rate
+        else:
+            return None
 
     @staticmethod
     def growth_rate(code, df, index='raw'):
@@ -59,30 +69,28 @@ class AggregateIndex(BasicIndex):
             return None
         else:
             # 分类计算指标
-            cum_value = df_ii["累计净值"]
+            cum_value = df_ii[["净值日期", "累计净值"]]
+            cum_value["净值日期"] = pd.to_datetime(cum_value["净值日期"])
             cum_value.reset_index(drop=True, inplace=True)
             try:
                 if index == 'week':
-                    rate = (cum_value[0] - cum_value[5]) / cum_value[5]
+                    rate = AggregateIndex.date_clean(cum_value, 7)
                     return rate
                 elif index == 'month':
-                    rate = (cum_value[0] - cum_value[20]) / cum_value[20]
+                    rate = AggregateIndex.date_clean(cum_value, 30)
                     return rate
                 elif index == '3month':
-                    rate = (cum_value[0] - cum_value[70]) / cum_value[70]
+                    rate = AggregateIndex.date_clean(cum_value, 90)
                     return rate
                 elif index == '6month':
-                    rate = (cum_value[0] - cum_value[125]) / cum_value[125]
+                    rate = AggregateIndex.date_clean(cum_value, 183)
                     return rate
                 elif index == 'year':
-                    if len(cum_value) > 250:
-                        rate = (cum_value[0] - cum_value[250]) / cum_value[250]
-                        return rate
+                    rate = AggregateIndex.date_clean(cum_value, 365)
+                    return rate
                 elif index == 'raw':
-                    return cum_value
+                    return df_ii["累计净值"]
             except KeyError:
-                with open("error code.txt", 'a') as c:
-                    c.write(code + ",")
                 logger.info(
                     "Error type: KeyError. Error code: {code}, length：{length}", code=code, length=len(cum_value)
                 )

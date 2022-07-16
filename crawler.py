@@ -133,7 +133,7 @@ class InitAssetValues(BasicPrep):
         else:
             return None, None
 
-    def initial_asset_values(self, codes, break_point):
+    def initial_asset_values(self, codes, break_point=0):
         # 【不推荐调用】首次获取单个基金的全量历史记录。
         mutual_fund_path = "./Data/mutual_fund_values.csv"
         money_fund_path = "./Data/money_fund_values.csv"
@@ -152,7 +152,6 @@ class InitAssetValues(BasicPrep):
                 self.adding_data(mutual_fund_path, df_i)
             elif data_sign == 2:  # 货币型基金
                 self.adding_data(money_fund_path, df_i)
-            logger.info("基金{code}爬取成功，若爬虫中断，应当间隔一段时间后再尝试！", code=code)
         logger.info("all 基金获取完毕")
 
 

@@ -12,7 +12,7 @@ if __name__ == '__main__':
     # 更新数据,大约需要20分钟
     up_values = UpdateAssetValues()
     up_values.update_asset_values(last_date)
-    # 更新指标,大约需要15分钟
+    # 更新指标,大约需要20分钟
     # short_indexes = ["基金周增长", "基金月增长", "基金3月增长", "收益波动率"]  # 短期指标
     long_indexes = ["基金6月增长", "基金年增长", "最大回撤"]  # 长期指标
     up_index = UpdateIndexes()
