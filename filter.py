@@ -14,11 +14,24 @@ with open("config.json", "r") as k:
 
 
 def df_reader(path):
+    """
+    用pandas.DataFrame读取表格,特别设定基金代码为字符串
+    :param path: Any
+        文件路径
+    :return: pandas.DataFrame
+    """
     df = pd.read_csv(path, dtype={"基金代码": str})
     return df
 
 
 def df_writer(df, path):
+    """
+    数据写入指定路径
+    :param df: pandas.DataFrame
+    :param path: Any
+        数据写入路径
+    :return: None
+    """
     df.to_csv(path, index=False)
 
 
@@ -63,6 +76,17 @@ class AggregateIndex(BasicIndex):
 
     @staticmethod
     def growth_rate(code, df, index='raw'):
+        """
+        计算基金增长率
+        :param code: str
+            基金代码
+        :param df: pandas.DataFrame
+            基金历史净值数据
+        :param index: {"week", "month", "3month", "6month", "year", "raw"}
+            计算增长率的指标
+        :return: float
+            增长率数据
+        """
         df_ii = df[df["基金代码"] == code]
         # 没有值不返回数据
         if df_ii.shape[0] == 0:
@@ -98,6 +122,17 @@ class AggregateIndex(BasicIndex):
                 logger.info("Error code: {code}, error info: {e}", code=code, e=repr(e))
 
     def clac_indexes(self, code, df, index='VIX'):
+        """
+        计算基金的评价指标
+        :param code: str
+            基金代码
+        :param df: pandas.DataFrame
+            基金历史净值数据
+        :param index: {"drawdown", "VIX", "sharp_ratio"}
+            带计算指标
+        :return: float
+            指标数值
+        """
         data_raw = self.growth_rate(code, df, 'raw')
         if data_raw is None:
             return None
@@ -174,10 +209,17 @@ class FilterTypes(AggregateIndex):
         return df_out
 
     def performance_filter(self, online=False):
+        """
+        获取基金指标数据
+        :param online: bool
+            是否更新指标数据
+        :return: pandas.DataFrame
+            基金指标数据
+        """
         # 加载全局变量的路径参数
-        df_in_path = CONFIGS["path_used_fund"]
-        raw_data_path = CONFIGS["path_asset_values"]
-        performance_path = CONFIGS["path_indicators"]
+        df_in_path = CONFIGS["path_used_fund"]  # 获取基金代码
+        raw_data_path = CONFIGS["path_asset_values"]  # 基金历史数据
+        performance_path = CONFIGS["path_indicators"]  # 基金指标数据
         if not online:
             df_out = df_reader(performance_path)
         else:
@@ -199,11 +241,8 @@ class FilterTypes(AggregateIndex):
             df_raw["最大回撤"] = df_raw["基金代码"].map(lambda x: self.clac_indexes(x, df_value, 'drawdown'))
             logger.info("基金最大回撤指标计算完成。基金波动率指标计算中......")
             df_raw["收益波动率"] = df_raw["基金代码"].map(lambda x: self.clac_indexes(x, df_value, 'VIX'))
-            logger.info("基金波动率指标计算完成。基金夏普比率指标计算中......")
-            df_raw["夏普比率"] = df_raw["基金代码"].map(lambda x: self.clac_indexes(x, df_value, 'sharp_ratio'))
-            logger.info("基金夏普比率指标计算完成。")
             df_out = df_raw[
-                ["基金代码", "基金周增长", "基金月增长", "基金3月增长", "基金6月增长", "基金年增长", "最大回撤", "收益波动率", "夏普比率"]
+                ["基金代码", "基金周增长", "基金月增长", "基金3月增长", "基金6月增长", "基金年增长", "最大回撤", "收益波动率"]
             ]
             df_out.dropna(subset=["基金月增长"], inplace=True)
             df_writer(df_out, path=performance_path)
@@ -212,10 +251,20 @@ class FilterTypes(AggregateIndex):
 
 class UpdateIndexes(FilterTypes):
     def perform_update(self):
-        # 根据传入的指标，返回综合排序后的结果
+        """
+        更新基金指标数据
+        :return: None
+        """
         self.performance_filter(online=True)
 
     def sorting_data(self, indexes):
+        """
+        根据关心的指标选取基金，输出日志
+        :param indexes: list
+            关心的指标列表
+        :return: pandas.DataFrame
+            排序后的基金
+        """
         # 更新指标数据
         self.perform_update()
         raw_data = CONFIGS["path_indicators"]
@@ -235,8 +284,6 @@ class UpdateIndexes(FilterTypes):
             df_t["基金年增长排名"] = df_t["基金年增长"].rank(ascending=False)
         if "最大回撤" in indexes:
             df_t["最大回撤排名"] = df_t["最大回撤"].rank(ascending=True)
-        if "夏普比率" in indexes:
-            df_t["夏普比率排名"] = df_t["夏普比率"].rank(ascending=False)
         if "收益波动率" in indexes:
             df_t["收益波动率排名"] = df_t["收益波动率"].rank(ascending=True)
         # 根据选中指标排序

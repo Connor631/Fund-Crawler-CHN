@@ -16,12 +16,25 @@ from filter import df_reader, df_writer
 
 
 def read_json(config_path="config.json"):
+    """
+    读取配置文件
+    :param config_path: Any
+        路径
+    :return: json
+        配置文件
+    """
     with open(config_path, "r") as k:
         config_json = json.load(k)
     return config_json
 
 
 def write_json(fig_dic):
+    """
+    写入参数
+    :param fig_dic: dict
+        参数
+    :return: None
+    """
     config_json = json.dumps(fig_dic)
     with open("config.json", "w") as f:
         f.write(config_json)
@@ -68,6 +81,18 @@ class InitFundList(BasicPrep):
 
 class InitAssetValues(BasicPrep):
     def get_value(self, s, code, page, start_date="2000-01-01"):
+        """
+        获取单个基金数据
+        :param s: requests.Session
+        :param code: str
+            基金代码
+        :param page: int
+            页数（调用中的参数）
+        :param start_date: date
+            数据开始日期
+        :return: str
+            网页原始数据
+        """
         # 获取单个基金指定页数的历史数据
         end_date = "2030-01-01"
         url = "https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&" \
@@ -77,6 +102,16 @@ class InitAssetValues(BasicPrep):
         return req_text
 
     def get_values(self, s, code, page):
+        """
+        获取基金的所有指定page的数据
+        :param s: requests.Session
+        :param code: str
+            基金代码
+        :param page: int
+            请求页数
+        :return: list
+            基金净值数据
+        """
         # 获取单个基金指定页数的历史数据并解析结果
         try:
             info = []
@@ -95,16 +130,22 @@ class InitAssetValues(BasicPrep):
             logger.info("访问错误，代码{code}, 页数{page}, 错误类型{e}", code=code, page=page, e=repr(e))
 
     def get_code_values(self, code, last_all_num=1000):
-        # 获取单个基金的指定数量的历史数据
+        """
+        获取单个基金的指定数量的历史数据
+        :param code: str
+            基金代码
+        :param last_all_num: int
+            指定获取的全量数据
+        :return: (基金数据，基金类型)
+        """
         s = requests.Session()
         # 首次访问，得到总记录数、总页数
         req_solo = self.get_value(s, code=code, page=1)
         # 查找记录数
-        # records = int(re.findall('records:(.*?),', req_solo)[0])
         pages_num = int(re.findall('pages:(.*?),', req_solo)[0])  # 包含所有数据的页数
         # 遍历数据
-        page = math.ceil(last_all_num / 20)
-        pages = page if pages_num > page else pages_num  # 以参数指定的页数为准，如果成立时间比指定的数量少，则以成立数据为准
+        spc_page = math.ceil(last_all_num / 20)
+        pages = spc_page if pages_num > spc_page else pages_num  # 如果全量数据比指定的数量少，则以全量数据为准
         page_num = list(range(1, int(pages) + 1))
         # 多线程爬取
         para = partial(self.get_values, s, code)
@@ -189,21 +230,39 @@ class InitManagers(BasicPrep):
 class UpdateAssetValues(InitAssetValues):
 
     def exec_asset_value(self, code, start_date, path_out):
+        """
+        更新全量基金净值数据，并保存到本地
+        :param code: str
+            基金代码，全拼
+        :param start_date: datetime
+            待更新数据的开始时间
+        :param path_out: Any
+            数据保存（添加）本地的路径
+        :return: None
+        """
         # 更新单个基金数据
         today = datetime.date.today()
         st = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-        diff_num = (today - st).days
+        diff_num = (today - st).days  # 自然日大于工作日，获取后需去重
         try:
             df_update, data_sign = self.get_code_values(code, diff_num)
             if data_sign == 1:
                 df_update.to_csv(path_out, index=False, mode='a', header=False)
-                # logger.info("基金{code}处理结束", code=code)
         except TypeError:
             logger.info("基金代码：{code}, 无数据跳过", code=code)
 
     def update_asset_values(self, st_date, bk_point=0):
-        path_codes = CONFIGS["path_used_fund"]
-        path_update = CONFIGS["path_asset_values"]
+        """
+        更新基金历史净值数据
+        :param st_date: datetime
+            需获取数据的开始时间（更新，避免每次获取全量数据）
+        :param bk_point: int
+            断点续传
+        :return: None
+            输出结果到本地文件
+        """
+        path_codes = CONFIGS["path_used_fund"]  # 基金代码数据路径
+        path_update = CONFIGS["path_asset_values"]  # 基金净值数据路径
         # 根据历史更新的时间，更新基金数据到最新，并写入数据文档
         df_codes = df_reader(path_codes)
         code_lst = df_codes["基金代码"].to_list()
